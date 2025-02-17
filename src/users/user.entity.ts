@@ -1,16 +1,5 @@
-import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  PrimaryGeneratedColumn,
-  UpdateDateColumn,
-} from 'typeorm';
-import { CURRENT_TIMESTAMP } from '@/utils/constant';
-
-enum UserType {
-  ADMIN = 'admin',
-  USER = 'user',
-}
+import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { UserType } from '@/utils/constant';
 
 @Entity('users')
 export class UserEntity {
