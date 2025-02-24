@@ -22,7 +22,7 @@ export class ValidateTokenHelper {
       const payload: JWTPayLoadType = await this.jwtService.verifyAsync(token, {
         secret: this.configService.get<string>('JWT_SECRET'),
       });
-      request[CURRENT_USER_KEY] = payload.id;
+      request[CURRENT_USER_KEY] = payload;
       return payload;
     } catch {
       throw new UnauthorizedException('Invalid token');

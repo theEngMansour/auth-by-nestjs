@@ -1,17 +1,19 @@
-import * as bcrypt from 'bcryptjs';
 import {
-  BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { Repository } from 'typeorm';
+import { Like, Repository } from 'typeorm';
 import { UserEntity } from '@/users/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { RegisterDto } from '@/users/dtos/register.dto';
 import { LoginDto } from '@/users/dtos/login.dto';
-import { AccessTokenType } from '@/utils/type';
+import { AccessTokenType, JWTPayLoadType } from '@/utils/type';
 import { GenerateJwtHelper } from '@/users/helpers/generate-jwt.helper';
+import { UpdateDto } from '@/users/dtos/update.dto';
+import bcryptPassword from '@/users/helpers/bcrypt.helper';
+import { AuthProvider } from '@/users/providers/auth.provider';
 
 @Injectable()
 export class UsersService extends GenerateJwtHelper {
@@ -19,6 +21,7 @@ export class UsersService extends GenerateJwtHelper {
     public readonly jwtService: JwtService,
     @InjectRepository(UserEntity)
     private readonly userRepository: Repository<UserEntity>,
+    private readonly authProvider: AuthProvider,
   ) {
     super(jwtService);
   }
@@ -30,29 +33,7 @@ export class UsersService extends GenerateJwtHelper {
    * @throws BadRequestException if the user already exists.
    */
   public async register(registerDto: RegisterDto): Promise<AccessTokenType> {
-    const { username, email, password } = registerDto;
-    const getUser: UserEntity | null = await this.userRepository.findOne({
-      where: { email },
-    });
-
-    if (getUser) throw new BadRequestException('user already exist');
-
-    const salt: string = await bcrypt.genSalt(10);
-    const hashedPassword: string = await bcrypt.hash(password, salt);
-
-    let newUser: UserEntity = this.userRepository.create({
-      username,
-      email,
-      password: hashedPassword,
-    });
-
-    newUser = await this.userRepository.save(newUser);
-
-    const accessToken: string = await this.generateJWT({
-      id: newUser.id,
-      userType: newUser.userType,
-    });
-    return { accessToken };
+    return await this.authProvider.register(registerDto);
   }
 
   /**
@@ -62,25 +43,7 @@ export class UsersService extends GenerateJwtHelper {
    * @throws BadRequestException if the email or password is invalid.
    */
   public async login(loginDto: LoginDto): Promise<AccessTokenType> {
-    const { email, password } = loginDto;
-    const user: UserEntity | null = await this.userRepository.findOne({
-      where: { email },
-    });
-
-    if (!user) throw new BadRequestException('invalid email or password');
-    const checkPassword: boolean = await bcrypt.compare(
-      password,
-      user.password,
-    );
-
-    if (!checkPassword)
-      throw new BadRequestException('invalid email or password');
-
-    const accessToken: string = await this.generateJWT({
-      id: user.id,
-      userType: user.userType,
-    });
-    return { accessToken };
+    return await this.authProvider.login(loginDto);
   }
 
   /**
@@ -95,6 +58,7 @@ export class UsersService extends GenerateJwtHelper {
     });
 
     if (!user) throw new NotFoundException('user not found');
+    // console.log(user.getFullName());
     return user;
   }
 
@@ -102,7 +66,36 @@ export class UsersService extends GenerateJwtHelper {
    * Retrieves all users from the database.
    * @returns A promise that resolves to an array of All User objects.
    */
-  public async getAllUsers(): Promise<UserEntity[]> {
-    return await this.userRepository.find();
+  public async getAllUsers(type?: string): Promise<UserEntity[]> {
+    const filters = {
+      ...(type ? { username: Like(`%${type}%`) } : {}),
+    };
+    return await this.userRepository.find({
+      where: filters,
+    });
+  }
+
+  public async update(id: number, updateDto: UpdateDto): Promise<UserEntity> {
+    const { username, password } = updateDto;
+    const user: UserEntity | null = await this.userRepository.findOne({
+      where: { id },
+    });
+    if (user) {
+      user.username = username ?? user?.username;
+      if (password) {
+        user.password = await bcryptPassword(password);
+      }
+      return this.userRepository.save(user);
+    }
+    throw new NotFoundException('user not found');
+  }
+
+  public async delete(userId: number, payload: JWTPayLoadType) {
+    const user: UserEntity | null = await this.getCurrentUser(userId);
+    if (user && (payload.userType == 'admin' || user?.id == payload.id)) {
+      await this.userRepository.remove(user);
+      return { message: 'user deleted' };
+    }
+    throw new ForbiddenException('you are not allowed to delete this user');
   }
 }

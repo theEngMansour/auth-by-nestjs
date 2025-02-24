@@ -1,10 +1,15 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
+  Param,
+  ParseIntPipe,
   Post,
+  Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { UsersService } from '@/users/users.service';
@@ -17,6 +22,7 @@ import { CurrentUser } from '@/users/decorators/current-user.decorator';
 import { Roles } from '@/users/decorators/user-role.decorator';
 import { UserType } from '@/utils/constant';
 import { AuthRolesGuard } from '@/users/guards/auth-roles.guard';
+import { UpdateDto } from '@/users/dtos/update.dto';
 
 @Controller('/api/users')
 export class UsersController {
@@ -35,6 +41,8 @@ export class UsersController {
 
   @Get('/current-user')
   @UseGuards(AuthGuard)
+  // @UseInterceptors(ClassSerializerInterceptor)
+  // @UseInterceptors(LoggingInterceptor)
   public async getCurrentUser(
     @CurrentUser() payload: JWTPayLoadType,
   ): Promise<UserEntity | null> {
@@ -44,7 +52,27 @@ export class UsersController {
   @Get()
   @Roles(UserType.USER)
   @UseGuards(AuthRolesGuard)
-  public async getAllUsers(): Promise<UserEntity[]> {
-    return await this.usersService.getAllUsers();
+  public async getAllUsers(@Query('type') type: string): Promise<UserEntity[]> {
+    return await this.usersService.getAllUsers(type);
+  }
+
+  @Put()
+  @Roles(UserType.USER, UserType.ADMIN)
+  @UseGuards(AuthRolesGuard)
+  public async updateUser(
+    @CurrentUser() payload: JWTPayLoadType,
+    @Body() body: UpdateDto,
+  ): Promise<UserEntity> {
+    return await this.usersService.update(payload.id, body);
+  }
+
+  @Delete(':id')
+  @Roles(UserType.USER, UserType.ADMIN)
+  @UseGuards(AuthRolesGuard)
+  public async deleteUser(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() payload: JWTPayLoadType,
+  ) {
+    return await this.usersService.delete(id, payload);
   }
 }
