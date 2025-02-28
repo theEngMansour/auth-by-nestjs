@@ -66,12 +66,18 @@ export class UsersService extends GenerateJwtHelper {
    * Retrieves all users from the database.
    * @returns A promise that resolves to an array of All User objects.
    */
-  public async getAllUsers(type?: string): Promise<UserEntity[]> {
+  public async getAllUsers(
+    type: string,
+    pageNumber: number,
+    total: number,
+  ): Promise<UserEntity[]> {
     const filters = {
       ...(type ? { username: Like(`%${type}%`) } : {}),
     };
     return await this.userRepository.find({
       where: filters,
+      skip: total * (pageNumber - 1),
+      take: total,
     });
   }
 

@@ -4,6 +4,7 @@ import { UsersModule } from '@/users/users.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UserEntity } from '@/users/user.entity';
 import { APP_INTERCEPTOR } from '@nestjs/core';
+import { UploadsModule } from '@/uploads/uploads.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { APP_INTERCEPTOR } from '@nestjs/core';
       }),
     }),
     UsersModule,
+    UploadsModule,
   ],
   providers: [
     {

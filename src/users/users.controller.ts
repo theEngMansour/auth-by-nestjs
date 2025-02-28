@@ -52,8 +52,12 @@ export class UsersController {
   @Get()
   @Roles(UserType.USER)
   @UseGuards(AuthRolesGuard)
-  public async getAllUsers(@Query('type') type: string): Promise<UserEntity[]> {
-    return await this.usersService.getAllUsers(type);
+  public async getAllUsers(
+    @Query('type') type: string,
+    @Query('pageNumber', ParseIntPipe) pageNumber: number,
+    @Query('total', ParseIntPipe) total: number,
+  ): Promise<UserEntity[]> {
+    return await this.usersService.getAllUsers(type, pageNumber, total);
   }
 
   @Put()
