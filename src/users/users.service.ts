@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -14,6 +15,8 @@ import { GenerateJwtHelper } from '@/users/helpers/generate-jwt.helper';
 import { UpdateDto } from '@/users/dtos/update.dto';
 import bcryptPassword from '@/users/helpers/bcrypt.helper';
 import { AuthProvider } from '@/users/providers/auth.provider';
+import { join } from 'node:path';
+import { existsSync, unlinkSync } from 'node:fs';
 
 @Injectable()
 export class UsersService extends GenerateJwtHelper {
@@ -32,7 +35,7 @@ export class UsersService extends GenerateJwtHelper {
    * @returns A promise that resolves to an access token if registration is successful.
    * @throws BadRequestException if the user already exists.
    */
-  public async register(registerDto: RegisterDto): Promise<AccessTokenType> {
+  public async register(registerDto: RegisterDto) {
     return await this.authProvider.register(registerDto);
   }
 
@@ -103,5 +106,55 @@ export class UsersService extends GenerateJwtHelper {
       return { message: 'user deleted' };
     }
     throw new ForbiddenException('you are not allowed to delete this user');
+  }
+
+  public async setProfileImage(userId: number, newProfileImage: string) {
+    const user: UserEntity | null = await this.getCurrentUser(userId);
+    if (user) {
+      if (user.profileImage == null) {
+        return (user.profileImage = newProfileImage);
+      } else {
+        await this.removeProfileImage(userId);
+        user.profileImage = newProfileImage;
+      }
+      return this.userRepository.save(user);
+    }
+  }
+
+  public async removeProfileImage(userId: number) {
+    const user: UserEntity | null = await this.getCurrentUser(userId);
+
+    if (user) {
+      if (!user.profileImage) {
+        throw new BadRequestException('There is no profile image');
+      }
+
+      const imagePath: string = join(
+        process.cwd(),
+        `./files/${user.profileImage}`,
+      );
+
+      if (existsSync(imagePath)) {
+        unlinkSync(imagePath);
+      }
+
+      user.profileImage = null as unknown as string;
+      return this.userRepository.save(user);
+    }
+  }
+
+  public async verifyEmail(userId: number, verificationToken: string) {
+    const user: UserEntity | null = await this.getCurrentUser(userId);
+    if (user?.verificationToken == null)
+      throw new NotFoundException('Not Found Exception');
+    if (user.verificationToken !== verificationToken)
+      throw new BadRequestException('invalid link');
+    user.verificationToken = null as unknown as string;
+    user.isAccountVerified = true;
+
+    await this.userRepository.save(user);
+    return {
+      message: 'Your email has been verified, please log in to your account',
+    };
   }
 }

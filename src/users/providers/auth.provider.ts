@@ -9,6 +9,9 @@ import { RegisterDto } from '@/users/dtos/register.dto';
 import { AccessTokenType } from '@/utils/type';
 import { LoginDto } from '@/users/dtos/login.dto';
 import { GenerateJwtHelper } from '@/users/helpers/generate-jwt.helper';
+import { MailService } from '@/mail/mail.service';
+import { ConfigService } from '@nestjs/config';
+import { randomBytes } from 'node:crypto';
 
 @Injectable()
 export class AuthProvider extends GenerateJwtHelper {
@@ -16,6 +19,8 @@ export class AuthProvider extends GenerateJwtHelper {
     public readonly jwtService: JwtService,
     @InjectRepository(UserEntity)
     private readonly userRepository: Repository<UserEntity>,
+    private readonly mailService: MailService,
+    private readonly config: ConfigService,
   ) {
     super(jwtService);
   }
@@ -26,7 +31,9 @@ export class AuthProvider extends GenerateJwtHelper {
    * @returns A promise that resolves to an access token if registration is successful.
    * @throws BadRequestException if the user already exists.
    */
-  public async register(registerDto: RegisterDto): Promise<AccessTokenType> {
+  public async register(
+    registerDto: RegisterDto,
+  ): Promise<{ message: string }> {
     const { username, email, password } = registerDto;
     const getUser: UserEntity | null = await this.userRepository.findOne({
       where: { email },
@@ -40,15 +47,24 @@ export class AuthProvider extends GenerateJwtHelper {
       username,
       email,
       password: hashedPassword,
+      verificationToken: randomBytes(32).toString('hex'),
     });
 
     newUser = await this.userRepository.save(newUser);
+    const link: string = this.generateLink(
+      newUser.id,
+      newUser.verificationToken,
+    );
+    await this.mailService.sendVerifyEmailTemplate(email, link);
 
-    const accessToken: string = await this.generateJWT({
-      id: newUser.id,
-      userType: newUser.userType,
-    });
-    return { accessToken };
+    // const accessToken: string = await this.generateJWT({
+    //   id: newUser.id,
+    //   userType: newUser.userType,
+    // });
+    return {
+      message:
+        'Verification token has been sent to your email, please verify your email address',
+    };
   }
 
   /**
@@ -72,10 +88,15 @@ export class AuthProvider extends GenerateJwtHelper {
     if (!checkPassword)
       throw new BadRequestException('invalid email or password');
 
+    await this.mailService.sendLoginEmail(user.email);
     const accessToken: string = await this.generateJWT({
       id: user.id,
       userType: user.userType,
     });
     return { accessToken };
+  }
+
+  private generateLink(userId: number, verificationToken: string) {
+    return `${this.config.get<string>('DOMAIN')}/api/users/verify-email/${userId}/${verificationToken}`;
   }
 }

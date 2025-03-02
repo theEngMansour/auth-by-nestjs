@@ -26,6 +26,12 @@ export class UserEntity {
   })
   userType: UserType;
 
+  @Column({ nullable: true, default: null })
+  profileImage: string;
+
+  @Column({ nullable: true })
+  verificationToken: string;
+
   getFullName() {
     return this.username;
   }

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -10,7 +11,9 @@ import {
   Post,
   Put,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { UsersService } from '@/users/users.service';
 import { RegisterDto } from '@/users/dtos/register.dto';
@@ -23,13 +26,15 @@ import { Roles } from '@/users/decorators/user-role.decorator';
 import { UserType } from '@/utils/constant';
 import { AuthRolesGuard } from '@/users/guards/auth-roles.guard';
 import { UpdateDto } from '@/users/dtos/update.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { multerImageConfig } from '@/config/multer-image.config';
 
 @Controller('/api/users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post('/auth/register')
-  public async register(@Body() body: RegisterDto): Promise<AccessTokenType> {
+  public async register(@Body() body: RegisterDto) {
     return await this.usersService.register(body);
   }
 
@@ -78,5 +83,24 @@ export class UsersController {
     @CurrentUser() payload: JWTPayLoadType,
   ) {
     return await this.usersService.delete(id, payload);
+  }
+
+  @Post('upload-image')
+  @UseInterceptors(FileInterceptor('file', multerImageConfig))
+  @UseGuards(AuthGuard)
+  public uploadProfileImage(
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() payload: JWTPayLoadType,
+  ) {
+    if (!file) throw new BadRequestException('no upload any file');
+    return this.usersService.setProfileImage(payload.id, file.filename);
+  }
+
+  @Get('/verify-email/:id/:verificationToken')
+  public verifyEmail(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('verificationToken') verificationToken: string,
+  ): Promise<{ message: string }> {
+    return this.usersService.verifyEmail(id, verificationToken);
   }
 }
