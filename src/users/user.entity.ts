@@ -32,6 +32,9 @@ export class UserEntity {
   @Column({ nullable: true })
   verificationToken: string;
 
+  @Column({ nullable: true })
+  resetPasswordToken: string;
+
   getFullName() {
     return this.username;
   }

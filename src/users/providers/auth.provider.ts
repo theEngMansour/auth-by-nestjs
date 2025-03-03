@@ -6,12 +6,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { UserEntity } from '@/users/user.entity';
 import { Repository } from 'typeorm';
 import { RegisterDto } from '@/users/dtos/register.dto';
-import { AccessTokenType } from '@/utils/type';
 import { LoginDto } from '@/users/dtos/login.dto';
 import { GenerateJwtHelper } from '@/users/helpers/generate-jwt.helper';
 import { MailService } from '@/mail/mail.service';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'node:crypto';
+import { ResetPasswordDto } from '@/users/dtos/reset-password.dto';
 
 @Injectable()
 export class AuthProvider extends GenerateJwtHelper {
@@ -73,7 +73,7 @@ export class AuthProvider extends GenerateJwtHelper {
    * @returns A promise that resolves to an access token if authentication is successful.
    * @throws BadRequestException if the email or password is invalid.
    */
-  public async login(loginDto: LoginDto): Promise<AccessTokenType> {
+  public async login(loginDto: LoginDto) {
     const { email, password } = loginDto;
     const user: UserEntity | null = await this.userRepository.findOne({
       where: { email },
@@ -88,6 +88,24 @@ export class AuthProvider extends GenerateJwtHelper {
     if (!checkPassword)
       throw new BadRequestException('invalid email or password');
 
+    if (!user.isAccountVerified) {
+      let verificationToken = user.verificationToken;
+
+      if (!verificationToken) {
+        user.verificationToken = randomBytes(32).toString('hex');
+        const result = await this.userRepository.save(user);
+        verificationToken = result.verificationToken;
+      }
+
+      const link = this.generateLink(user.id, verificationToken);
+      await this.mailService.sendVerifyEmailTemplate(email, link);
+
+      return {
+        message:
+          'Verification token has been sent to your email, please verify your email address',
+      };
+    }
+
     await this.mailService.sendLoginEmail(user.email);
     const accessToken: string = await this.generateJWT({
       id: user.id,
@@ -96,7 +114,59 @@ export class AuthProvider extends GenerateJwtHelper {
     return { accessToken };
   }
 
-  private generateLink(userId: number, verificationToken: string) {
+  public async sendResetPassword(email: string) {
+    const user: UserEntity | null = await this.userRepository.findOne({
+      where: { email },
+    });
+    if (!user)
+      throw new BadRequestException('user with given email does not exist');
+    user.resetPasswordToken = randomBytes(32).toString('hex');
+    const result: UserEntity = await this.userRepository.save(user);
+    const resetPasswordLink = `${this.config.get<string>('DOMAIN')}/reset-password/${user.id}/${result.resetPasswordToken}`;
+    await this.mailService.sendResetPasswordTemplate(email, resetPasswordLink);
+    return {
+      message:
+        'Password reset link sent to your email, please check your inbox',
+    };
+  }
+
+  public async getResetPasswordLink(
+    userId: number,
+    resetPasswordToken: string,
+  ) {
+    await this.checkLinkResetPassword(userId, resetPasswordToken);
+    return { message: 'valid link' };
+  }
+
+  public async resetPassword(dto: ResetPasswordDto) {
+    const { userId, resetPasswordToken, newPassword } = dto;
+    const user: UserEntity = await this.checkLinkResetPassword(
+      Number(userId),
+      resetPasswordToken,
+    );
+    user.password = await bcryptPassword(newPassword);
+    user.resetPasswordToken = null as unknown as string;
+    await this.userRepository.save(user);
+
+    return { message: 'password reset successfully, please log in' };
+  }
+
+  private generateLink(userId: number, verificationToken: string): string {
     return `${this.config.get<string>('DOMAIN')}/api/users/verify-email/${userId}/${verificationToken}`;
+  }
+
+  private async checkLinkResetPassword(
+    userId: number,
+    resetPasswordToken: string,
+  ) {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) throw new BadRequestException('invalid link');
+
+    if (
+      user.resetPasswordToken === null ||
+      user.resetPasswordToken !== resetPasswordToken
+    )
+      throw new BadRequestException('invalid link');
+    return user;
   }
 }

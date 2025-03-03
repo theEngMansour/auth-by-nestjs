@@ -10,13 +10,14 @@ import { UserEntity } from '@/users/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { RegisterDto } from '@/users/dtos/register.dto';
 import { LoginDto } from '@/users/dtos/login.dto';
-import { AccessTokenType, JWTPayLoadType } from '@/utils/type';
+import { JWTPayLoadType } from '@/utils/type';
 import { GenerateJwtHelper } from '@/users/helpers/generate-jwt.helper';
 import { UpdateDto } from '@/users/dtos/update.dto';
 import bcryptPassword from '@/users/helpers/bcrypt.helper';
 import { AuthProvider } from '@/users/providers/auth.provider';
 import { join } from 'node:path';
 import { existsSync, unlinkSync } from 'node:fs';
+import { ResetPasswordDto } from '@/users/dtos/reset-password.dto';
 
 @Injectable()
 export class UsersService extends GenerateJwtHelper {
@@ -45,7 +46,7 @@ export class UsersService extends GenerateJwtHelper {
    * @returns A promise that resolves to an access token if authentication is successful.
    * @throws BadRequestException if the email or password is invalid.
    */
-  public async login(loginDto: LoginDto): Promise<AccessTokenType> {
+  public async login(loginDto: LoginDto) {
     return await this.authProvider.login(loginDto);
   }
 
@@ -156,5 +157,17 @@ export class UsersService extends GenerateJwtHelper {
     return {
       message: 'Your email has been verified, please log in to your account',
     };
+  }
+
+  public sendResetPassword(email: string) {
+    return this.authProvider.sendResetPassword(email);
+  }
+
+  public getResetPassword(userId: number, resetPasswordToken: string) {
+    return this.authProvider.getResetPasswordLink(userId, resetPasswordToken);
+  }
+
+  public resetPassword(dto: ResetPasswordDto) {
+    return this.authProvider.resetPassword(dto);
   }
 }
