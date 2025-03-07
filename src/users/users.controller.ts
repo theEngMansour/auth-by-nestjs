@@ -30,18 +30,36 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { multerImageConfig } from '@/config/multer-image.config';
 import { ForgotPasswordDto } from '@/users/dtos/forgot-password.dto';
 import { ResetPasswordDto } from '@/users/dtos/reset-password.dto';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiCreatedResponse,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
+import { FileUploadDto } from '@/users/dtos/file-upload.dto';
 
+@ApiTags('Auth')
 @Controller('/api/users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post('/auth/register')
+  @ApiCreatedResponse({
+    description: 'The record has been successfully created.',
+    type: RegisterDto,
+  })
   public async register(@Body() body: RegisterDto) {
     return await this.usersService.register(body);
   }
 
   @Post('/auth/login')
   @HttpCode(HttpStatus.OK)
+  @ApiCreatedResponse({
+    description: 'The record has been successfully created.',
+    type: LoginDto,
+  })
   public async login(@Body() body: LoginDto) {
     return await this.usersService.login(body);
   }
@@ -59,6 +77,15 @@ export class UsersController {
   @Get()
   @Roles(UserType.USER)
   @UseGuards(AuthRolesGuard)
+  @ApiQuery({
+    name: 'type',
+    required: false,
+  })
+  @ApiQuery({
+    name: 'pageNumber',
+    description: 'the current page for get',
+    required: false,
+  })
   public async getAllUsers(
     @Query('type') type: string,
     @Query('pageNumber', ParseIntPipe) pageNumber: number,
@@ -68,8 +95,12 @@ export class UsersController {
   }
 
   @Put()
+  @ApiBearerAuth()
   @Roles(UserType.USER, UserType.ADMIN)
   @UseGuards(AuthRolesGuard)
+  @ApiBody({
+    type: UpdateDto,
+  })
   public async updateUser(
     @CurrentUser() payload: JWTPayLoadType,
     @Body() body: UpdateDto,
@@ -88,6 +119,11 @@ export class UsersController {
   }
 
   @Post('upload-image')
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'file update for profile',
+    type: FileUploadDto,
+  })
   @UseInterceptors(FileInterceptor('file', multerImageConfig))
   @UseGuards(AuthGuard)
   public uploadProfileImage(
