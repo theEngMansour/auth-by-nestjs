@@ -1,6 +1,7 @@
-import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { UserType } from '@/utils/constant';
 import { Exclude } from 'class-transformer';
+import { Product } from '@/products/product.entity';
 
 @Entity('users')
 export class UserEntity {
@@ -34,6 +35,12 @@ export class UserEntity {
 
   @Column({ nullable: true })
   resetPasswordToken: string;
+
+  @OneToMany(
+    (): typeof Product => Product,
+    (product: Product): UserEntity => product.user,
+  )
+  products: Product[];
 
   getFullName() {
     return this.username;

@@ -25,5 +25,6 @@ import { MailModule } from '@/mail/mail.module';
     }),
     MailModule,
   ],
+  exports: [UsersService, JwtModule],
 })
 export class UsersModule {}

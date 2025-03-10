@@ -6,6 +6,8 @@ import { UserEntity } from '@/users/user.entity';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { UploadsModule } from '@/uploads/uploads.module';
 import { MailModule } from '@/mail/mail.module';
+import { ProductsModule } from './products/products.module';
+import { Product } from '@/products/product.entity';
 
 @Module({
   imports: [
@@ -22,13 +24,14 @@ import { MailModule } from '@/mail/mail.module';
         username: config.get<string>('DB_USERNAME', 'root'),
         password: config.get<string>('DB_PASSWORD', ''),
         database: config.get<string>('DB_NAME', 'database-nestjs'),
-        entities: [UserEntity],
+        entities: [UserEntity, Product],
         synchronize: config.get<boolean>('DB_SYNC', true),
       }),
     }),
     UsersModule,
     UploadsModule,
     MailModule,
+    ProductsModule,
   ],
   providers: [
     {
