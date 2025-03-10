@@ -3,11 +3,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersModule } from '@/users/users.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UserEntity } from '@/users/user.entity';
-import { APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { UploadsModule } from '@/uploads/uploads.module';
 import { MailModule } from '@/mail/mail.module';
 import { ProductsModule } from './products/products.module';
 import { Product } from '@/products/product.entity';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 @Module({
   imports: [
@@ -28,6 +29,14 @@ import { Product } from '@/products/product.entity';
         synchronize: config.get<boolean>('DB_SYNC', true),
       }),
     }),
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          ttl: 60000,
+          limit: 10,
+        },
+      ],
+    }),
     UsersModule,
     UploadsModule,
     MailModule,
@@ -37,6 +46,10 @@ import { Product } from '@/products/product.entity';
     {
       provide: APP_INTERCEPTOR,
       useClass: ClassSerializerInterceptor,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
     },
   ],
 })

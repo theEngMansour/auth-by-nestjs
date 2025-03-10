@@ -1,3 +1,4 @@
+import helmet from 'helmet';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
@@ -10,6 +11,8 @@ async function bootstrap() {
   app.enableCors({
     origin: 'http://localhost:3000',
   });
+
+  app.use(helmet());
   const config = new DocumentBuilder()
     .setTitle('Library For Auth by (@theengmansour)')
     .setDescription('The auth API description')

@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
 import { ProductsService } from '@/products/products.service';
 import { CurrentUser } from '@/users/decorators/current-user.decorator';
 import { JWTPayLoadType } from '@/utils/type';
@@ -19,5 +19,12 @@ export class ProductsController {
     @Body() body: CreateProductDto,
   ): Promise<{ message: string }> {
     return await this.productsService.createProduct(payload.id, body);
+  }
+
+  @Get('middleware')
+  public getTestMiddleware(@Req() req: Request & { info: { name: string } }) {
+    if (req.info) {
+      return req.info;
+    }
   }
 }
